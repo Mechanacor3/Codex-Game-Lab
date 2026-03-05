@@ -1,0 +1,14 @@
+{
+  "name": "gravity-sushi-tiny",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "test": "playwright test"
+  },
+  "devDependencies": {
+    "playwright": "^1.40.0",
+    "typescript": "^4.9.5"
+  }
+}

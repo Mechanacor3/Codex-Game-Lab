@@ -19,16 +19,37 @@ services:
       - ./litellm/litellm.config.yaml:/app/config.yaml:ro
     ports:
       - "${LITELLM_BIND_HOST:-127.0.0.1}:${LITELLM_PORT:-28789}:4000"
+    networks:
+      - llm_internal
+      - litellm_egress
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:4000/health/liveliness', timeout=2).read()\""]
+      interval: 5s
+      timeout: 3s
+      retries: 20
 
   codex:
     build: .
     working_dir: /workspace
     volumes:
-      - ./:/workspace
+      - ${WORKSPACE_DIR:-.}:/workspace
     environment:
       - CUSTOM_LLM_API_KEY=${CUSTOM_LLM_API_KEY:-dummy}
+      - CODEX_HOME=/home/node/.codex
+      - CODEX_CONFIG_DIR=/home/node/.codex
     depends_on:
-      - litellm
+      litellm:
+        condition: service_healthy
+    networks:
+      - llm_internal
     stdin_open: true
     tty: true
     command: ["codex"]
+
+networks:
+  # Codex can only reach services on this private network.
+  llm_internal:
+    internal: true
+  # LiteLLM uses this separate network for upstream provider egress.
+  litellm_egress:
+    driver: bridge

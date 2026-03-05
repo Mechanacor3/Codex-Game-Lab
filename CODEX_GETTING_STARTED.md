@@ -14,9 +14,10 @@ Skills are folder-based (with `SKILL.md`) and are discovered from `.agents/skill
 
 This repo is pre-wired to run its own LiteLLM service and use it from Codex:
 
-- `model = "default"`
+- `model = "gpt-5-nano"` (alias routed by LiteLLM)
 - `base_url = "http://litellm:4000/v1"`
 - compose service: `litellm`
+- baked global skills in image: `playwright`, `develop-web-game`
 
 Run:
 

@@ -1,0 +1,8 @@
+{"type":"thread.started","thread_id":"019cbcbd-6b7a-7782-a29c-3b9d73a17418"}
+{"type":"item.completed","item":{"id":"item_0","type":"error","message":"Model metadata for `default` not found. Defaulting to fallback metadata; this can degrade performance and cause issues."}}
+{"type":"turn.started"}
+{"type":"item.completed","item":{"id":"item_1","type":"agent_message","text":"I'll create the directory and write the text `OK` into `/workspace/demo/2048-run/.smoke_ok`, then confirm its contents."}}
+{"type":"item.started","item":{"id":"item_2","type":"command_execution","command":"/bin/bash -lc \"mkdir -p /workspace/demo/2048-run && printf 'OK' > /workspace/demo/2048-run/.smoke_ok && ls -l /workspace/demo/2048-run/.smoke_ok && cat /workspace/demo/2048-run/.smoke_ok\"","aggregated_output":"","exit_code":null,"status":"in_progress"}}
+{"type":"item.completed","item":{"id":"item_2","type":"command_execution","command":"/bin/bash -lc \"mkdir -p /workspace/demo/2048-run && printf 'OK' > /workspace/demo/2048-run/.smoke_ok && ls -l /workspace/demo/2048-run/.smoke_ok && cat /workspace/demo/2048-run/.smoke_ok\"","aggregated_output":"-rwxrwxrwx 1 node node 2 Mar  5  2026 /workspace/demo/2048-run/.smoke_ok\nOK","exit_code":0,"status":"completed"}}
+{"type":"item.completed","item":{"id":"item_3","type":"agent_message","text":"Done."}}
+{"type":"turn.completed","usage":{"input_tokens":22940,"cached_input_tokens":11008,"output_tokens":722}}

@@ -1,4 +1,4 @@
-model = "default"
+model = "gpt-5-nano"
 model_provider = "local_litellm"
 
 approval_policy = "on-request"

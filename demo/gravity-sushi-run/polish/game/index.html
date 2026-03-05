@@ -1,0 +1,38 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Gravity Sushi - Tiny</title>
+  <style>body{margin:0;display:flex;align-items:center;justify-content:center;height:100vh;background:#222;color:#eee}canvas{background:#0b1220;border:1px solid #445;width:600px;height:400px}</style>
+</head>
+<body>
+  <div id="ui" style="position:relative;">
+    <canvas id="game" width="600" height="400"></canvas>
+
+    <!-- Start / Game Over overlays (visual only, fast CSS) -->
+    <div id="overlay-start" role="dialog" aria-hidden="false" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none">
+      <div style="pointer-events:auto;background:rgba(10,12,16,0.8);backdrop-filter:blur(2px);padding:18px;border-radius:8px;text-align:center;color:#fff;font-family:monospace;">
+        <div style="font-size:20px;margin-bottom:8px">Gravity Sushi</div>
+        <button id="btn-start" style="padding:8px 12px;border-radius:6px;border:none;background:#8bc34a;color:#042;cursor:pointer">Start</button>
+      </div>
+    </div>
+
+    <div id="overlay-gameover" role="dialog" aria-hidden="true" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none">
+      <div style="pointer-events:auto;background:rgba(10,12,16,0.9);padding:18px;border-radius:8px;text-align:center;color:#fff;font-family:monospace;">
+        <div id="gameover-text" style="font-size:18px;margin-bottom:8px">Game Over</div>
+        <button id="btn-restart" style="padding:8px 12px;border-radius:6px;border:none;background:#ff8a65;color:#042;cursor:pointer">Restart</button>
+      </div>
+    </div>
+
+    <!-- Accessibility toggles and touch hints -->
+    <div id="hud-controls" style="position:absolute;left:8px;bottom:8px;pointer-events:auto;font-family:monospace;color:#fff;font-size:12px;">
+      <label style="display:inline-block;margin-right:8px"><input id="toggle-reduced" type="checkbox"> Reduced motion</label>
+      <label style="display:inline-block;margin-right:8px"><input id="toggle-contrast" type="checkbox"> High contrast</label>
+    </div>
+    <div id="touch-hint" style="position:absolute;right:8px;bottom:8px;pointer-events:none;color:#ddd;font-family:monospace;font-size:12px;">Touch: tap to drop, drag to move</div>
+  </div>
+
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
