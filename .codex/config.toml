@@ -1,0 +1,10 @@
+model = "default"
+model_provider = "local_litellm"
+
+approval_policy = "on-request"
+sandbox_mode = "workspace-write"
+
+[model_providers.local_litellm]
+name = "Codex Game Lab LiteLLM"
+base_url = "http://litellm:4000/v1"
+env_key = "CUSTOM_LLM_API_KEY"

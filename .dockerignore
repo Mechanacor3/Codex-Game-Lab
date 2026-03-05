@@ -1,0 +1,7 @@
+.git
+node_modules
+game/node_modules
+*.log
+.env
+.env.*
+!.env.example
