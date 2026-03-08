@@ -1,6 +1,99 @@
 name: codex-game-lab
 
 services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-litellm}
+      - POSTGRES_USER=${POSTGRES_USER:-litellm}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-litellm}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - llm_internal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-litellm} -d ${POSTGRES_DB:-litellm}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    networks:
+      - llm_internal
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    restart: unless-stopped
+    environment:
+      - REDIS_HOSTS=local:redis:6379:0
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - llm_internal
+      - litellm_egress
+    ports:
+      - "${REDIS_COMMANDER_BIND_HOST:-127.0.0.1}:${REDIS_COMMANDER_PORT:-28790}:8081"
+
+  responses-cache-proxy:
+    build:
+      context: ./responses-cache-proxy
+    restart: unless-stopped
+    environment:
+      - RESPONSES_CACHE_PROXY_API_KEY=${RESPONSES_CACHE_PROXY_API_KEY:-sk-cache-proxy}
+      - RESPONSES_CACHE_PROXY_INNER_API_KEY=${LITELLM_MASTER_KEY:-}
+      - RESPONSES_CACHE_PROXY_INNER_BASE_URL=${RESPONSES_CACHE_PROXY_INNER_BASE_URL:-http://litellm:4000/v1}
+      - RESPONSES_CACHE_PROXY_INNER_MODEL=${RESPONSES_CACHE_PROXY_INNER_MODEL:-gpt-5-nano}
+      - RESPONSES_CACHE_PROXY_MODEL_NAME=gpt-5-nano-cached
+      - RESPONSES_CACHE_PROXY_HISTORY_TTL_SECONDS=${RESPONSES_CACHE_PROXY_HISTORY_TTL_SECONDS:-604800}
+      - RESPONSES_CACHE_PROXY_REDIS_URL=${RESPONSES_CACHE_PROXY_REDIS_URL:-redis://redis:6379/0}
+      - RESPONSES_CACHE_PROXY_MODE=${RESPONSES_CACHE_PROXY_MODE:-record}
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - llm_internal
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/liveliness', timeout=2).read()\""]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  responses-cache-proxy-replay:
+    build:
+      context: ./responses-cache-proxy
+    restart: unless-stopped
+    environment:
+      - RESPONSES_CACHE_PROXY_API_KEY=${RESPONSES_CACHE_PROXY_API_KEY:-sk-cache-proxy}
+      - RESPONSES_CACHE_PROXY_INNER_API_KEY=${LITELLM_MASTER_KEY:-}
+      - RESPONSES_CACHE_PROXY_INNER_BASE_URL=${RESPONSES_CACHE_PROXY_INNER_BASE_URL:-http://litellm:4000/v1}
+      - RESPONSES_CACHE_PROXY_INNER_MODEL=${RESPONSES_CACHE_PROXY_INNER_MODEL:-gpt-5-nano}
+      - RESPONSES_CACHE_PROXY_MODEL_NAME=gpt-5-nano-cached-only
+      - RESPONSES_CACHE_PROXY_HISTORY_TTL_SECONDS=${RESPONSES_CACHE_PROXY_HISTORY_TTL_SECONDS:-604800}
+      - RESPONSES_CACHE_PROXY_REDIS_URL=${RESPONSES_CACHE_PROXY_REDIS_URL:-redis://redis:6379/0}
+      - RESPONSES_CACHE_PROXY_MODE=${RESPONSES_CACHE_PROXY_REPLAY_MODE:-replay_only}
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - llm_internal
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/liveliness', timeout=2).read()\""]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
   litellm:
     image: docker.litellm.ai/berriai/litellm:main-stable
     restart: unless-stopped
@@ -15,10 +108,21 @@ services:
       - LITELLM_UPSTREAM_MODEL=${LITELLM_UPSTREAM_MODEL:-openai/gpt-5-mini}
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - OPENAI_API_BASE=${OPENAI_API_BASE:-}
+      - LITELLM_MASTER_KEY=${LITELLM_MASTER_KEY:-}
+      - DATABASE_URL=${DATABASE_URL:-postgresql://litellm:litellm@postgres:5432/litellm}
+      - UI_USERNAME=${UI_USERNAME:-admin}
+      - UI_PASSWORD=${UI_PASSWORD:-}
+      - STORE_MODEL_IN_DB=${STORE_MODEL_IN_DB:-True}
+      - RESPONSES_CACHE_PROXY_BASE_URL=${RESPONSES_CACHE_PROXY_BASE_URL:-http://responses-cache-proxy:8000/v1}
+      - RESPONSES_CACHE_PROXY_REPLAY_BASE_URL=${RESPONSES_CACHE_PROXY_REPLAY_BASE_URL:-http://responses-cache-proxy-replay:8000/v1}
+      - RESPONSES_CACHE_PROXY_API_KEY=${RESPONSES_CACHE_PROXY_API_KEY:-sk-cache-proxy}
     volumes:
       - ./litellm/litellm.config.yaml:/app/config.yaml:ro
     ports:
       - "${LITELLM_BIND_HOST:-127.0.0.1}:${LITELLM_PORT:-28789}:4000"
+    depends_on:
+      postgres:
+        condition: service_healthy
     networks:
       - llm_internal
       - litellm_egress
@@ -53,3 +157,7 @@ networks:
   # LiteLLM uses this separate network for upstream provider egress.
   litellm_egress:
     driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:

@@ -10,3 +10,13 @@ model_list:
       model: os.environ/LITELLM_UPSTREAM_MODEL
       api_key: os.environ/OPENAI_API_KEY
       api_base: os.environ/OPENAI_API_BASE
+
+  - model_name: gpt-5-nano-cached
+    litellm_params:
+      model: openai/gpt-5-nano-cached
+      api_key: os.environ/RESPONSES_CACHE_PROXY_API_KEY
+      api_base: os.environ/RESPONSES_CACHE_PROXY_BASE_URL
+      
+general_settings:
+  store_model_in_db: true
+  store_prompts_in_spend_logs: true
