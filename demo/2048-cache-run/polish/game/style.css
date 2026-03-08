@@ -1,0 +1,18 @@
+:root{ --bg:#f1efe9; --tile:#eee4da; --tile-dark:#776e65; --accent:#f67c5f }
+body{font-family:Inter,system-ui,monospace;margin:0;background:var(--bg);color:#222}
+#app{max-width:620px;margin:18px auto;padding:12px}
+header{display:flex;justify-content:space-between;align-items:center}
+.controls{display:flex;gap:8px;align-items:center}
+#board-wrap{position:relative;margin-top:12px}
+#board{width:500px;height:500px;background:#bbada0;border-radius:8px;padding:16px;box-sizing:border-box;position:relative}
+.grid-cell{position:absolute;width:100px;height:100px;border-radius:6px;background:rgba(238,228,218,0.35);left:0;top:0}
+.tile{position:absolute;border-radius:6px;display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--tile-dark);background:var(--tile);transition:transform 180ms cubic-bezier(.22,.9,.35,1), left 120ms, top 120ms, opacity 120ms}
+.high-contrast .tile{background:black;color:#fff}
+.reduced-motion .tile{transition:none}
+.tile.pop{transform:scale(1.12)}
+.overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:auto}
+.overlay .panel{background:rgba(255,255,255,0.98);padding:18px;border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,0.25);text-align:center}
+.overlay.visible{display:flex}
+.overlay[hidden]{display:none}
+#status{margin-top:12px}
+pre{background:#fff;padding:12px;border-radius:6px}

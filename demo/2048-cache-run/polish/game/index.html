@@ -1,0 +1,48 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Polished 2048 (Deterministic)</title>
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <div id="app">
+    <header>
+      <h1>2048 — Polished Demo</h1>
+      <div class="controls">
+        <label><input type="checkbox" id="hcToggle"> High contrast</label>
+        <label><input type="checkbox" id="rmToggle"> Reduced motion</label>
+        <button id="restartBtn">Restart</button>
+      </div>
+    </header>
+
+    <main>
+      <div id="board-wrap">
+        <div id="board" aria-live="polite"></div>
+        <div id="overlays">
+          <div id="startOverlay" class="overlay visible">
+            <div class="panel">
+              <h2>Welcome</h2>
+              <p>Deterministic 2048 — press Play to start</p>
+              <button id="playBtn">Play</button>
+            </div>
+          </div>
+          <div id="endOverlay" class="overlay" hidden>
+            <div class="panel">
+              <h2 id="endTitle">Game</h2>
+              <p id="endMsg"></p>
+              <button id="endRestart">Restart</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <section id="status">
+        <pre id="render"></pre>
+      </section>
+    </main>
+  </div>
+
+  <script type="module" src="./src/main.ts"></script>
+  <script src="./ui.js" defer></script>
+</body>
+</html>
