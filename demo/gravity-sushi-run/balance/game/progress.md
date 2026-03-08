@@ -6,3 +6,7 @@
   - `window.setStateForTest(...)`
   - plus helpers `window.drop()` and `window.setPlateX()` for testing.
 - Tests in `tests/playwright.spec.ts` cover stable drop scoring, toppling, and timer-based game_over.
+
+- Balance pass (weights & phases) applied: added light/medium/heavy labels with numeric weights, tuned spawn probabilities and anti-streak rule, added phases at 20s/40s increasing plate speed.
+- `render_game_to_text` extended with `phase`, `topWeight`, and `plateSpeed`.
+- Existing Playwright tests validate phase speed change, deterministic seed drops, and heavy-streak avoidance.

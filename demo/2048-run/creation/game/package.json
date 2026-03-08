@@ -1,13 +1,11 @@
 {
   "name": "minimal-2048",
-  "version": "0.1.0",
+  "version": "0.0.1",
   "private": true,
   "scripts": {
-    "test": "playwright test"
+    "test-playwright": "npx playwright test --project=chromium"
   },
   "devDependencies": {
-    "@playwright/test": "^1.40.0",
-    "typescript": "^4.9.5",
-    "ts-node": "^10.9.1"
+    "@playwright/test": "^1.40.0"
   }
 }

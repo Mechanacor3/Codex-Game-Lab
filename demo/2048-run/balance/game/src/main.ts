@@ -17,7 +17,7 @@ const game = new Game(1);
 (window as any).setBoard = (b:number[]) => game.setBoard(b);
 (window as any).move = (dir:'up'|'down'|'left'|'right') => game.move(dir);
 (window as any).render_game_to_text = () => renderToText(game);
-(window as any).advanceTime = (ms:number) => { /* deterministic time progression: no-op but kept for API */ };
+(window as any).advanceTime = (ms:number) => { game.advanceTime(ms); };
 
 // keyboard controls
 window.addEventListener('keydown', (e) => {

@@ -6,3 +6,9 @@
   - `window.setStateForTest(...)`
   - plus helpers `window.drop()` and `window.setPlateX()` for testing.
 - Tests in `tests/playwright.spec.ts` cover stable drop scoring, toppling, and timer-based game_over.
+ - Added lightweight polish: subtle drop trails, landing squish, and plate wobble tied to deterministic `animTime`.
+ - Added reduced-motion and high-contrast toggles (UI in `index.html`, bindings in `src/main.ts`).
+ - Preserved deterministic hooks: `window.advanceTime(ms)` and `window.render_game_to_text()`.
+ - Touch input (pointer events) present alongside keyboard controls; Playwright tests validate tap-to-drop and drag-to-move.
+ - Updated RAF loop to advance visual clock without changing core gameplay balance.
+ - Preflight skill docs were read from `$CODEX_HOME/skills/playwright/SKILL.md` and `$CODEX_HOME/skills/develop-web-game/SKILL.md`.

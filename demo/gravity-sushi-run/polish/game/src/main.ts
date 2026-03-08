@@ -118,11 +118,14 @@ game.renderToCanvas(ctx);
 let last = performance.now();
 function raf(now = performance.now()) {
   const dt = now - last; last = now;
-  // Only decrement real time when playing and not in a test-driven environment
+  // In demo mode update visual clock and decrement timer only (don't call game.step to avoid
+  // changing gameplay balance in non-test/demo runs). We still advance `animTime` so
+  // wobble/squish visuals are deterministic and can be captured by tests.
   if (game.state === 'playing') {
-    // do small step but don't call game.step here to keep determinism in tests. We will decrement timer slowly for demo.
-    // For demo mode, advance by actual dt but cap to avoid large jumps.
     const adv = Math.min(50, dt);
+    // advance visual clock used by render for deterministic wobble
+    (game as any).animTime = ((game as any).animTime || 0) + adv;
+    // decrement timer as before
     game.timeRemaining = Math.max(0, game.timeRemaining - adv);
     if (game.timeRemaining === 0) game.state = 'game_over';
   }

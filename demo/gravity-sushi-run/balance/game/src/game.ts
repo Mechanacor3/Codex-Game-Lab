@@ -48,8 +48,8 @@ export class Game {
   // choose category with anti-streak rules
   chooseWeightLabel(): WeightLabel {
     const r = this.rng.next();
-    // base probabilities: light 50%, medium 35%, heavy 15%
-    let label: WeightLabel = r < 0.5 ? 'light' : (r < 0.85 ? 'medium' : 'heavy');
+    // tuned probabilities: light 50%, medium 38%, heavy 12%
+    let label: WeightLabel = r < 0.5 ? 'light' : (r < 0.88 ? 'medium' : 'heavy');
     // avoid 3-in-a-row heavies: if last two are heavy, force medium
     const n = this.lastLabels.length;
     if (label === 'heavy' && n >= 2 && this.lastLabels[n-1] === 'heavy' && this.lastLabels[n-2] === 'heavy') {
@@ -145,7 +145,8 @@ export class Game {
     const phase = this.phase;
     const top = this.pieces[this.pieces.length - 1];
     const topLabel = top ? top.label : 'none';
-    return `${this.score},${timerSec},${stackHeight},${stability},${this.state},phase=${phase},top=${topLabel},plateSpeed=${this.plateSpeed}`;
+    const topWeight = top ? top.weight : 0;
+    return `${this.score},${timerSec},${stackHeight},${stability},${this.state},phase=${phase},top=${topLabel},topWeight=${topWeight},plateSpeed=${this.plateSpeed}`;
   }
 
   setStateForTest(obj: Partial<{ timeRemaining: number; score: number; pieces: Piece[]; plateX: number; state: 'playing'|'game_over' }>) {

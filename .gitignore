@@ -1,2 +1,7 @@
 __pycache__/
 *.pyc
+runtime-logs/
+.env
+.codex-state/
+.codex-state-cache/
+.codex-state-test/

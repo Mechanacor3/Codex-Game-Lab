@@ -59,13 +59,13 @@ Expected:
 
 For staged game demos, keep this structure:
 
-- `demo/<game>/creation`
-- `demo/<game>/balance`
-- `demo/<game>/polish`
-- `demo/<game>/prompts`
-- `demo/<game>/logs`
-- `demo/<game>/README.md`
-- `demo/<game>/REPORT.md`
+- `demo/<game>-run/creation`
+- `demo/<game>-run/balance`
+- `demo/<game>-run/polish`
+- `demo/<game>-run/prompts`
+- `demo/<game>-run/logs`
+- `demo/<game>-run/README.md`
+- `demo/<game>-run/REPORT.md`
 
 Also store:
 
@@ -91,11 +91,12 @@ Also store:
 3. If commands are meant for copy/paste, keep quoting simple and shell-safe.
 4. If behavior differs from docs, update docs in the same change.
 
-## Current Known Gap
+## Canonical Demo Naming
 
-- Dinosaur demo naming is split between `demo/dinosaur-jump` and `demo/dnosaur-jump`.
-  - Do not introduce additional variants.
-  - Consolidate to one canonical folder name when touching that area.
+- Prompt packs use `demo/<game>/`.
+- Integration runs use `demo/<game>-run/`.
+- Dinosaur run path is canonicalized as `demo/dinosaur-jump-run/`.
+- Do not introduce additional spelling/path variants.
 
 ## Root Cause Notes (from integration logs)
 

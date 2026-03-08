@@ -101,13 +101,10 @@ export class Game {
 
   move(dir: 'up'|'down'|'left'|'right') {
     if (this.state !== 'playing') return false;
-    const before = this.cloneBoard();
     let moved = false;
-    let gained = 0;
     // for undo state we capture pre-move board+score
     const preBoard = this.cloneBoard();
     const preScore = this.score;
-    const makeLine = (i: number) => [this.board[i], this.board[i+4], this.board[i+8], this.board[i+12]];
 
     if (dir === 'left' || dir === 'right') {
       for (let r = 0; r < 4; r++) {
@@ -133,8 +130,6 @@ export class Game {
       this.moves += 1;
       // spawn after a valid move
       this.spawnRandom();
-      // recompute score as sum of board for simplicity of deterministic scoring increments
-      // but we will increment gained inside processLine via side-effect
     }
 
     // if moved, store undo snapshot (we allow undo until used up)
@@ -176,6 +171,11 @@ export class Game {
     this.state = 'playing';
     return true;
   }
+
+  advanceTime(ms:number) {
+    // deterministic no-op time advancement hook for tests
+    // Game has no time-based behavior, but expose this so tests can call it without affecting RNG/state.
+  }
 }
 
 function arraysEqual(a: number[], b: number[]) {
@@ -192,5 +192,14 @@ export function renderToText(g: Game) {
     rows.push(row.join(' '));
   }
   const best = Math.max(...g.board);
-  return `\n${rows.join('\n')}\nscore: ${g.score}\nmoves: ${g.moves}\nstate: ${g.state}\npreset: ${g.preset}\nundos_left: ${g.undos_left}\nbest: ${best}\n`;
+  return `
+${rows.join('
+')}
+score: ${g.score}
+moves: ${g.moves}
+state: ${g.state}
+preset: ${g.preset}
+undos_left: ${g.undos_left}
+best: ${best}
+`;
 }

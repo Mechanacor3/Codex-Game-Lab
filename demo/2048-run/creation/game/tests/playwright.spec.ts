@@ -1,41 +1,37 @@
 import { test, expect } from '@playwright/test';
+import path from 'path';
+const fileUrl = 'file://' + path.resolve(__dirname, '../index.html');
 
-test.describe('minimal 2048', () => {
-  test.beforeEach(async ({ page }) => {
-    await page.goto('file://' + process.cwd() + '/game/index.html');
-  });
+test('merge produces correct tile and score (no spawn)', async ({ page }) => {
+  await page.goto(fileUrl);
+  await page.evaluate(()=>{ window.setSeed(1234); window.setBoard([[2,2,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]]); });
+  // use no-spawn move to assert the merge deterministically
+  await page.evaluate(()=> window.moveNoSpawn('left'));
+  const txt = await page.evaluate(()=> window.render_game_to_text());
+  expect(txt).toContain('4 0 0 0');
+  expect(txt).toContain('Score: 4');
+});
 
-  test('merge rule and score increase', async ({ page }) => {
-    // set up a board where left move will merge two pairs
-    // row 0: 2 2 4 4 => left => 4 8 0 0 ; score += 4 + 8 = 12
-    const board = [2,2,4,4, 0,0,0,0, 0,0,0,0, 0,0,0,0];
-    await page.evaluate((b) => (window as any).setBoard(b), board);
-    const moved = await page.evaluate(() => (window as any).move('left'));
-    expect(moved).toBe(true);
-    const text = await page.evaluate(() => (window as any).render_game_to_text());
-    expect(text).toContain('score: 12');
-  });
+test('chain merges and score accumulation', async ({ page }) => {
+  await page.goto(fileUrl);
+  // row that chains: [2,2,4,4] -> left => [4,8,0,0] score += 4+8 = 12
+  await page.evaluate(()=>{ window.setSeed(42); window.setBoard([[2,2,4,4],[0,0,0,0],[0,0,0,0],[0,0,0,0]]); });
+  await page.evaluate(()=> window.moveNoSpawn('left'));
+  const txt = await page.evaluate(()=> window.render_game_to_text());
+  expect(txt).toContain('4 8 0 0');
+  expect(txt).toContain('Score: 12');
+});
 
-  test('spawn 2 or 4 with 90/10 probability on valid move (deterministic)', async ({ page }) => {
-    await page.evaluate(() => (window as any).setGameSeed(12345));
-    // empty board except one tile
-    const board = [2,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0];
-    await page.evaluate((b) => (window as any).setBoard(b), board);
-    // move right to shift
-    await page.evaluate(() => (window as any).move('right'));
-    const text = await page.evaluate(() => (window as any).render_game_to_text());
-    // spawned tile should be 2 or 4; with deterministic seed expect either but check present
-    expect(text).toMatch(/\b2\b|\b4\b/);
-  });
-
-  test('loss detection', async ({ page }) => {
-    // fill board with no possible merges
-    const board = [2,4,8,16, 32,64,128,256, 512,1024,2,4, 8,16,32,64];
-    await page.evaluate((b) => (window as any).setBoard(b), board);
-    // no move should be possible
-    const canMove = await page.evaluate(() => (window as any).game.canMove());
-    expect(canMove).toBe(false);
-    const text = await page.evaluate(() => (window as any).render_game_to_text());
-    expect(text).toContain('state: lost');
-  });
+test('loss detection', async ({ page }) => {
+  await page.goto(fileUrl);
+  // fill board with a pattern that has no merges
+  const b = [
+    [2,4,2,4],
+    [4,2,4,2],
+    [2,4,2,4],
+    [4,2,4,8]
+  ];
+  await page.evaluate((board)=>{ window.setSeed(7); window.setBoard(board); }, b);
+  const txt = await page.evaluate(()=> window.render_game_to_text());
+  expect(txt).toContain('State: lost');
 });

@@ -1,0 +1,46 @@
+# Dinosaur Jump Integration Prompt - Stage 1: Creation
+
+Use this as an end-to-end integration run inside Codex.
+
+Working directory is the stage folder root. Build everything in the current directory.
+
+Tasks:
+
+1. Create a complete Dinosaur Jump web game prototype under `game/` using Vite + TypeScript.
+2. Add deterministic hooks:
+   - `window.advanceTime(ms)`
+   - `window.render_game_to_text()`
+3. Include one obstacle type (cactus), distance score, and `game_over` state.
+4. Add Playwright tests for:
+   - score increases after 10 seconds of deterministic simulation
+   - forced collision sets `game_over`
+5. Run tests and fix failures.
+6. Keep a short `progress.md`.
+
+Important constraints:
+
+- Keep changes scoped to this stage directory.
+- Keep implementation small and readable.
+
+## Skill Use Requirements (Mandatory)
+
+Before any implementation edits, run and log this exact preflight (inside the current stage directory):
+
+```bash
+export CODEX_HOME="${CODEX_HOME:-$HOME/.codex}"
+export PWCLI="$CODEX_HOME/skills/playwright/scripts/playwright_cli.sh"
+export WEB_GAME_CLIENT="$CODEX_HOME/skills/develop-web-game/scripts/web_game_playwright_client.js"
+export WEB_GAME_ACTIONS="$CODEX_HOME/skills/develop-web-game/references/action_payloads.json"
+
+sed -n '1,200p' "$CODEX_HOME/skills/playwright/SKILL.md"
+sed -n '1,260p' "$CODEX_HOME/skills/develop-web-game/SKILL.md"
+sed -n '1,120p' "$CODEX_HOME/skills/playwright/references/cli.md"
+sed -n '1,120p' "$CODEX_HOME/skills/develop-web-game/references/action_payloads.json"
+"$PWCLI" --help || true
+node "$WEB_GAME_CLIENT" --help || true
+```
+
+During implementation, keep using skill paths (scripts/references) instead of inventing new workflows where possible.
+At the end of your response, include a one-line proof marker:
+
+`SKILL_USAGE_PROOF: <what skill files/scripts were used>`

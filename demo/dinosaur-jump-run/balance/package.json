@@ -1,0 +1,14 @@
+{
+  "name": "dinosaur-jump-stage",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "test": "node tests/node_tests.js",
+    "test:playwright": "npx playwright test --workers=1",
+    "test:node": "node tests/node_tests.js",
+    "start": "node serve.js"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.40.0"
+  }
+}

@@ -1,41 +1,26 @@
-import { Game, renderToText } from './game';
+// TS entry (mirrors runtime) - included for source completeness
+import { Game } from './game';
 
-// expose deterministic game on window for tests
-declare global { interface Window {
-  game: any;
-  advanceTime(ms:number): void;
-  render_game_to_text(): string;
-} }
+declare global{ interface Window { __game:any; setSeed:any; setBoard:any; getBoard:any; move:any; moveNoSpawn:any; render_game_to_text:any; advanceTime:any; } }
 
-const game = new Game(1);
-(window as any).game = game;
+const g = new Game(1);
+window.__game = g;
+window.setSeed = (s:number)=> g.setSeed(s);
+window.setBoard = (b:number[][])=> { g.setBoard(b); };
+window.getBoard = ()=> g.getBoard();
+window.move = (d:'left'|'right'|'up'|'down')=> g.move(d);
+window.moveNoSpawn = (d:'left'|'right'|'up'|'down')=> g.moveNoSpawn(d);
+window.render_game_to_text = ()=> g.renderText();
+window.advanceTime = (ms:number)=> { g.time += ms; return g.time; };
 
-(window as any).setGameSeed = (s:number) => game.setSeed(s);
-(window as any).setBoard = (b:number[]) => game.setBoard(b);
-(window as any).move = (dir:'up'|'down'|'left'|'right') => game.move(dir);
-(window as any).render_game_to_text = () => renderToText(game);
-(window as any).advanceTime = (ms:number) => { /* no-op for now */ };
-
-// keyboard controls
-window.addEventListener('keydown', (e) => {
-  const map: Record<string, any> = {
-    ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right',
-    w: 'up', s: 'down', a: 'left', d: 'right'
-  };
-  const k = (e.key.length ===1) ? e.key.toLowerCase() : e.key;
-  const dir = (map as any)[k];
-  if (dir) {
-    const moved = (window as any).move(dir);
-    if (moved) render();
+window.addEventListener('keydown', (ev)=>{
+  const key=ev.key;
+  const map:any = {ArrowLeft:'left',ArrowUp:'up',ArrowRight:'right',ArrowDown:'down', a:'left',w:'up',d:'right',s:'down'};
+  if(map[key]){
+    const moved = window.move(map[key]);
+    if(moved) console.log('moved', map[key]);
+    window.render_game_to_text();
   }
 });
-
-function render() {
-  const out = (window as any).render_game_to_text();
-  const el = document.getElementById('render');
-  if (el) el.textContent = out;
-}
-
-render();
 
 export {};

@@ -1,153 +1,110 @@
-// Minimal deterministic match-3 engine (plain JS in a .ts file)
+// Minimal deterministic match-3 runtime (compact, self-contained)
 (function(){
-  const W = 6, H = 6, TYPES = 5, TOTAL_MS = 60000;
-  function makeRng(seed){
-    let s = seed >>> 0 || 1;
-    return {
-      next(){ s = (s * 1103515245 + 12345) >>> 0; return s; },
-      nextInt(n){ return (this.next() >>> 0) % n; }
-    };
-  }
+  const W = 8, H = 8, COLORS = 6;
+  let seed = 1;
+  function mulberry32(a){ return function(){ a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+  let rnd = mulberry32(seed);
+  let board = new Array(W*H).fill(0);
+  let score = 0, combo = 0;
+  let totalTime = 60.0; // seconds
+  let remaining = totalTime;
+  const MILESTONES = [15,30,45,60];
+  let achieved = new Set();
+  let deadBoard = false;
+  let reshuffleCount = 0;
 
-  function fmtTime(ms){
-    const s = Math.max(0, (TOTAL_MS - ms)/1000);
-    return s.toFixed(3);
-  }
+  function idx(x,y){ return y*W + x; }
+  function get(x,y){ return board[idx(x,y)]; }
+  function set(x,y,v){ board[idx(x,y)]=v; }
 
-  function createEmpty(){
-    const b = new Array(H);
-    for(let y=0;y<H;y++){ b[y]=new Array(W).fill(0); }
-    return b;
-  }
+  function randInt(){ return Math.floor(rnd()*COLORS)+1; }
 
-  function cloneBoard(b){ return b.map(r=>r.slice()); }
+  function seedPRNG(s){ seed = (s|0) >>> 0; rnd = mulberry32(seed); }
 
-  // simple scan for any match in a board
-  function hasMatch(b){
-    for(let y=0;y<H;y++){
-      for(let x=0;x<W-2;x++){
-        const v=b[y][x]; if(v===b[y][x+1] && v===b[y][x+2]) return true;
-      }
+  function fillBoard(){ for(let i=0;i<board.length;i++) board[i]=randInt(); removeInitialMatches(); }
+  function removeInitialMatches(){ // simple pass to avoid immediate 3-in-a-row
+    for(let y=0;y<H;y++) for(let x=0;x<W;x++){
+      while(isMatchAt(x,y)) board[idx(x,y)] = randInt();
     }
+  }
+
+  function isMatchAt(x,y){ const v = get(x,y); if(!v) return false; // check horiz
+    let c=1; for(let i=x+1;i<W && get(i,y)===v;i++) c++; for(let i=x-1;i>=0 && get(i,y)===v;i--) c++; if(c>=3) return true;
+    c=1; for(let j=y+1;j<H && get(x,j)===v;j++) c++; for(let j=y-1;j>=0 && get(x,j)===v;j--) c++; if(c>=3) return true;
+    return false;
+  }
+
+  function findMatches(){ const hits = new Set();
+    // horiz
+    for(let y=0;y<H;y++){
+      let run=1; for(let x=1;x<W;x++){
+        if(get(x,y)===get(x-1,y)) run++; else { if(run>=3) for(let k=0;k<run;k++) hits.add(idx(x-1-k,y)); run=1; }
+      } if(run>=3) for(let k=0;k<run;k++) hits.add(idx(W-1-k,y));
+    }
+    // vert
     for(let x=0;x<W;x++){
-      for(let y=0;y<H-2;y++){
-        const v=b[y][x]; if(v===b[y+1][x] && v===b[y+2][x]) return true;
-      }
+      let run=1; for(let y=1;y<H;y++){
+        if(get(x,y)===get(x,y-1)) run++; else { if(run>=3) for(let k=0;k<run;k++) hits.add(idx(x,y-1-k)); run=1; }
+      } if(run>=3) for(let k=0;k<run;k++) hits.add(idx(x,H-1-k));
+    }
+    return Array.from(hits);
+  }
+
+  function collapseAndRefill(){ for(let x=0;x<W;x++){
+    let write = H-1;
+    for(let y=H-1;y>=0;y--){ const v=get(x,y); if(v){ set(x,write,v); write--; } }
+    for(let y=write;y>=0;y--) set(x,y,randInt());
+  }}
+
+  function applyMatches(hits){ if(hits.length===0) return 0; const count = hits.length; for(const id of hits) board[id]=0; collapseAndRefill(); combo = combo+1; score += count*10*combo; return count; }
+
+  function performCascades(){ let total=0; let loop=0; while(true){ const hits = findMatches(); if(hits.length===0) break; total += applyMatches(hits); loop++; if(loop>50) break; } if(total===0) combo=0; return total; }
+
+  function hasPossibleMove(){ // try swapping neighbors
+    for(let y=0;y<H;y++) for(let x=0;x<W;x++){
+      if(x+1<W){ swapCells(x,y,x+1,y); if(findMatches().length>0){ swapCells(x,y,x+1,y); return true; } swapCells(x,y,x+1,y); }
+      if(y+1<H){ swapCells(x,y,x,y+1); if(findMatches().length>0){ swapCells(x,y,x,y+1); return true; } swapCells(x,y,x,y+1); }
     }
     return false;
   }
 
-  // check if swapping any adjacent tiles would create a match
-  function hasAnyMove(b){
-    const trySwap = (x1,y1,x2,y2)=>{
-      const c = cloneBoard(b);
-      const t = c[y1][x1]; c[y1][x1]=c[y2][x2]; c[y2][x2]=t;
-      return hasMatch(c);
-    };
-    for(let y=0;y<H;y++){
-      for(let x=0;x<W;x++){
-        if(x+1<W && trySwap(x,y,x+1,y)) return true;
-        if(y+1<H && trySwap(x,y,x,y+1)) return true;
-      }
-    }
-    return false;
+  function swapCells(x1,y1,x2,y2){ const a=idx(x1,y1), b=idx(x2,y2); const t=board[a]; board[a]=board[b]; board[b]=t; }
+
+  function reshuffleDeterministic(){ reshuffleCount++; // update prng using seed+count to keep determ
+    seedPRNG((seed ^ (reshuffleCount*2654435761))>>>0);
+    // Fisher-Yates
+    for(let i=board.length-1;i>0;i--){ const j = Math.floor(rnd()*(i+1)); const t=board[i]; board[i]=board[j]; board[j]=t; }
+    // if still no moves, repeat (bounded)
+    let attempts=0; while(!hasPossibleMove() && attempts<10){ for(let i=board.length-1;i>0;i--){ const j = Math.floor(rnd()*(i+1)); const t=board[i]; board[i]=board[j]; board[j]=t; } attempts++; }
+    deadBoard = !hasPossibleMove();
   }
 
-  // flatten/shuffle utilities
-  function toFlat(b){ return b.flat(); }
-  function fromFlat(arr){ const b=createEmpty(); for(let i=0;i<arr.length;i++){ b[Math.floor(i/W)][i%W]=arr[i]; } return b; }
+  // Public APIs
+  function setBoardSeed(s){ seedPRNG(s); fillBoard(); score=0; combo=0; remaining=totalTime; achieved.clear(); deadBoard=false; reshuffleCount=0; }
 
-  // global game state
-  window.GAME = window.GAME || {};
-  const g = window.GAME;
-  g.W = W; g.H = H; g.TYPES = TYPES;
-  g.score = 0; g.combo = 0; g.elapsed = 0; g.milestonesReached = [];
-  g.DEAD = false; g.finished = false; g._seed = 1; g._rng = makeRng(1);
-  g.board = createEmpty();
-
-  function generateBoard(){
-    for(let y=0;y<H;y++){
-      for(let x=0;x<W;x++){
-        g.board[y][x] = g._rng.nextInt(TYPES);
-      }
-    }
-    // if the generated board already has matches, that's okay; ensure at least one move exists
-    if(!hasAnyMove(g.board)){
-      // if dead, perform deterministic reshuffle
-      reshuffleDeterministic(50);
-    }
+  function advanceTime(ms){ if(remaining<=0) return; const prevElapsed = totalTime - remaining; remaining = Math.max(0, remaining - ms/1000); const elapsed = totalTime - remaining; // milestones are elapsed thresholds
+    for(let i=0;i<MILESTONES.length;i++){ const m=MILESTONES[i]; if(elapsed >= m && !achieved.has(m)){ achieved.add(m); } }
+    // do a deterministic cascade tick per advance call to simulate game updates
+    performCascades();
+    // dead board detection during gameplay: reshuffle deterministically
+    if(!hasPossibleMove()){ deadBoard = true; reshuffleDeterministic(); }
+    if(remaining<=0) { remaining=0; }
   }
 
-  function setBoardSeed(seed){
-    g._seed = seed >>> 0; g._rng = makeRng(g._seed);
-    g.score = 0; g.combo = 0; g.elapsed = 0; g.milestonesReached = [];
-    g.finished = false; g.DEAD = false;
-    g.board = createEmpty();
-    generateBoard();
-    return g.board;
+  function render_game_to_text(){ const arr = Array.from(achieved).sort(function(a,b){return a-b}); const highest = arr.length? arr[arr.length-1]: 0; var out = '';
+    out += 'SCORE: ' + score + '\n';
+    out += 'COMBO: ' + combo + '\n';
+    out += 'TIME: ' + Math.floor(remaining) + '\n';
+    out += 'MILESTONE: ' + highest + '\n';
+    out += 'DEAD: ' + deadBoard;
+    return out;
   }
-  window.setBoardSeed = setBoardSeed;
 
-  function render_game_to_text(){
-    const rows = g.board.map(r=>r.map(v=>'🔴🔵🟢🟡🟣'.slice(v*2,v*2+2) || v).join(' '));
-    const milestone = g.milestonesReached.length? g.milestonesReached.join(',') : 'none';
-    const dead = g.DEAD ? 'true' : 'false';
-    const time = fmtTime(g.elapsed);
-    return [
-      `SCORE: ${g.score}`,
-      `COMBO: ${g.combo}`,
-      `TIME: ${time}`,
-      `MILESTONE: ${milestone}`,
-      `DEAD: ${dead}`,
-      'BOARD:',
-      ...rows
-    ].join('\n');
+  // expose for tests
+  if(typeof window !== 'undefined'){
+    window.setBoardSeed = setBoardSeed;
+    window.advanceTime = advanceTime;
+    window.render_game_to_text = render_game_to_text;
+    window.__internal_game = { board: board, W: W, H: H, seed: function(){ return seed; }, _forceNoMoves: function(){ for(var y=0;y<H;y++) for(var x=0;x<W;x++) board[idx(x,y)] = ((x+y)%COLORS)+1; deadBoard = !hasPossibleMove(); } };
   }
-  window.render_game_to_text = render_game_to_text;
-
-  // advance time by ms (deterministic)
-  const MILESTONES = [15000,30000,45000,60000];
-  function advanceTime(ms){
-    if(g.finished) return;
-    const prev = g.elapsed;
-    g.elapsed = Math.min(TOTAL_MS, g.elapsed + ms);
-    for(const m of MILESTONES){
-      if(prev < m && g.elapsed >= m && !g.milestonesReached.includes(m/1000)){
-        g.milestonesReached.push(m/1000);
-      }
-    }
-    if(g.elapsed >= TOTAL_MS) g.finished = true;
-    return g.elapsed;
-  }
-  window.advanceTime = advanceTime;
-
-  // dead detection
-  function checkDead(){ g.DEAD = !hasAnyMove(g.board); return g.DEAD; }
-  window.checkDead = checkDead;
-
-  // deterministic reshuffle using current RNG
-  function reshuffleDeterministic(maxAttempts=100){
-    let flat = toFlat(g.board);
-    const n = flat.length;
-    for(let attempt=0; attempt<maxAttempts; attempt++){
-      // Fisher-Yates using g._rng
-      for(let i=n-1;i>0;i--){
-        const j = g._rng.nextInt(i+1);
-        const t = flat[i]; flat[i]=flat[j]; flat[j]=t;
-      }
-      const candidate = fromFlat(flat);
-      if(hasAnyMove(candidate)){
-        g.board = candidate; g.DEAD = false; return true;
-      }
-      // otherwise perturb by re-seeding a little (but still deterministic)
-      // advance rng once
-      g._rng.next();
-    }
-    // failed to find good board
-    g.DEAD = true; return false;
-  }
-  window.reshuffleDeterministic = reshuffleDeterministic;
-
-  // minimal expose for tests
-  window._GAME = g;
 })();

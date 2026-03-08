@@ -2,6 +2,18 @@
 
 This folder pins exact demo prompts and generates token/cost reports.
 
+## Directory Convention
+
+- Prompt packs live at: `demo/<game>/`
+- Integration runs live at: `demo/<game>-run/`
+
+Examples:
+
+- `demo/dinosaur-jump/` + `demo/dinosaur-jump-run/`
+- `demo/match3-emoji/` + `demo/match3-emoji-run/`
+- `demo/2048/` + `demo/2048-run/`
+- `demo/gravity-sushi/` + `demo/gravity-sushi-run/`
+
 ## Files
 
 - `prompt.md`: default Dinosaur Jump core prompt

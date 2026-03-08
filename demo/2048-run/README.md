@@ -28,6 +28,20 @@ Base copies are included for traceability:
 - `02-balance-base.md`
 - `03-polish-base.md`
 
+## Evolution Screenshots
+
+### Creation
+
+![2048 creation stage](screenshots/creation.png)
+
+### Balance
+
+![2048 balance stage](screenshots/balance.png)
+
+### Polish
+
+![2048 polish stage](screenshots/polish.png)
+
 ## Notes On This "Try Again"
 
 - `core` completed cleanly and produced a deterministic minimal 2048 scaffold.

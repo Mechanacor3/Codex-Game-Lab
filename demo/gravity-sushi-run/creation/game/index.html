@@ -2,12 +2,207 @@
 <html>
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Gravity Sushi - Tiny</title>
-  <style>body{margin:0;display:flex;align-items:center;justify-content:center;height:100vh;background:#222;color:#eee}canvas{background:#0b1220;border:1px solid #445;width:600px;height:400px}</style>
+  <title>Gravity Sushi (Tiny)</title>
+  <style>body{margin:0;background:#111;color:#ddd;font-family:monospace}canvas{display:block;margin:0 auto;background:#081;}</style>
 </head>
 <body>
-  <canvas id="game" width="600" height="400"></canvas>
-  <script type="module" src="/src/main.ts"></script>
+<canvas id="c" width="400" height="600"></canvas>
+<script type="module">
+// Minimal deterministic Gravity Sushi game (compiled-in JS)
+const WIDTH = 400, HEIGHT = 600;
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+
+// Game state
+let state = 'running'; // 'running' | 'game_over' | 'toppled'
+let timerMs = 60000;
+let score = 0;
+
+let plate = { x: WIDTH/2, y: HEIGHT - 60, w: 120, h: 12, speed: 0.25 };
+const pieceW = 60, pieceH = 18;
+let pieces = []; // stacked pieces (resting)
+let falling = null; // active falling piece
+
+let stability = 'stable'; // 'stable' | 'unstable'
+
+// Deterministic RNG (LCG)
+let rngSeed = 123456;
+function rngNext() {
+  rngSeed = (rngSeed * 1664525 + 1013904223) >>> 0; // 32-bit
+  return (rngSeed & 0x7fffffff) / 0x7fffffff;
+}
+
+let dropSeed = null; // optional separate drop-determinism
+let dropCount = 0;
+function pickWeight() {
+  if (dropSeed != null) {
+    // simple hashed drop-based value
+    const s = (dropSeed + dropCount) >>> 0;
+    const w = ((s * 22695477 + 1) >>> 0) % 100;
+    dropCount++;
+    return 0.5 + (w / 100) * 2.5; // weight between 0.5..3.0
+  }
+  return 0.5 + rngNext() * 2.5;
+}
+
+// Controls
+let inputLeft = false, inputRight = false;
+
+function spawnPiece() {
+  const weight = pickWeight();
+  return { x: plate.x, y: 40, w: pieceW, h: pieceH, vy: 0, weight };
+}
+
+function computeStackTopY() {
+  if (pieces.length === 0) return plate.y - plate.h/2 - pieceH/2 - 2;
+  // top is previous top y minus half height
+  const top = pieces[pieces.length-1];
+  return top.y - top.h/2 - 0.5;
+}
+
+function assessStability() {
+  if (pieces.length === 0) { stability = 'stable'; return; }
+  // compute center of mass x relative to plate.x
+  let totalMass = 0, com = 0;
+  for (const p of pieces) {
+    totalMass += p.weight;
+    com += p.weight * p.x;
+  }
+  const cx = com / totalMass;
+  const rel = cx - plate.x;
+  if (rel < -plate.w/2 || rel > plate.w/2) {
+    stability = 'unstable';
+  } else {
+    stability = 'stable';
+  }
+}
+
+function placeFallingOnStack(f) {
+  const topY = computeStackTopY();
+  f.y = topY - f.h/2;
+  pieces.push({ x: f.x, y: f.y, w: f.w, h: f.h, weight: f.weight });
+  falling = null;
+  assessStability();
+  if (stability === 'stable') score += 1;
+  else {
+    // topple
+    state = 'toppled';
+  }
+}
+
+function stepPhysics(dt) {
+  if (state !== 'running') return;
+
+  // update plate by inputs
+  if (inputLeft) plate.x -= plate.speed * dt;
+  if (inputRight) plate.x += plate.speed * dt;
+  plate.x = Math.max(plate.w/2, Math.min(WIDTH - plate.w/2, plate.x));
+
+  // spawn falling if none
+  if (!falling) {
+    // nothing automatic; falling is created only by drop action
+  }
+
+  if (falling) {
+    // gravity px/ms^2
+    const g = 0.0012;
+    falling.vy += g * dt;
+    falling.y += falling.vy * dt;
+    // check collision with stack/plate
+    const topY = computeStackTopY();
+    if (falling.y + falling.h/2 >= topY) {
+      placeFallingOnStack(falling);
+    }
+  }
+}
+
+function render() {
+  ctx.clearRect(0,0,WIDTH,HEIGHT);
+  // plate
+  ctx.fillStyle = '#444';
+  ctx.fillRect(plate.x - plate.w/2, plate.y - plate.h/2, plate.w, plate.h);
+  // pieces
+  for (const p of pieces) {
+    ctx.fillStyle = '#f4c';
+    ctx.fillRect(p.x - p.w/2, p.y - p.h/2, p.w, p.h);
+    ctx.fillStyle = '#222';
+    ctx.fillText(p.weight.toFixed(2), p.x-8, p.y+4);
+  }
+  if (falling) {
+    ctx.fillStyle = '#ff8';
+    ctx.fillRect(falling.x - falling.w/2, falling.y - falling.h/2, falling.w, falling.h);
+    ctx.fillStyle = '#000';
+    ctx.fillText(falling.weight.toFixed(2), falling.x-8, falling.y+4);
+  }
+  // HUD
+  ctx.fillStyle = '#fff';
+  ctx.fillText(`Score: ${score}`, 10, 16);
+  ctx.fillText(`Timer: ${(timerMs/1000).toFixed(1)}s`, 10, 32);
+  ctx.fillText(`Stack: ${pieces.length}`, 10, 48);
+  ctx.fillText(`Stability: ${stability}`, 10, 64);
+  ctx.fillText(`State: ${state}`, 10, 80);
+}
+
+// Exposed deterministic API
+window.advanceTime = function(ms) {
+  if (state === 'game_over') return;
+  const step = 16; // ms per physics step
+  let remaining = ms;
+  while (remaining > 0) {
+    const dt = Math.min(step, remaining);
+    stepPhysics(dt);
+    // decrement timer only when running
+    if (state === 'running') {
+      timerMs -= dt;
+      if (timerMs <= 0) {
+        timerMs = 0;
+        state = 'game_over';
+      }
+    }
+    remaining -= dt;
+  }
+  render();
+};
+
+window.render_game_to_text = function() {
+  return `score:${score},timer:${Math.ceil(timerMs)},stack_height:${pieces.length},stability:${stability},state:${state}`;
+};
+
+window.setDropSeed = function(s) { dropSeed = s; dropCount = 0; };
+
+window.setStateForTest = function(o) {
+  if (o.plateX != null) plate.x = o.plateX;
+  if (o.timerMs != null) timerMs = o.timerMs;
+  if (o.state != null) state = o.state;
+  if (o.score != null) score = o.score;
+  if (o.pieces != null) pieces = JSON.parse(JSON.stringify(o.pieces));
+  // reset falling
+  falling = null;
+  render();
+};
+
+window.inputLeft = function(on){ inputLeft = !!on; };
+window.inputRight = function(on){ inputRight = !!on; };
+window.drop = function(){ if (state!=='running') return; if (!falling) falling = spawnPiece(); };
+
+// convenience small API synonyms
+window.advance = window.advanceTime;
+window.render_text = window.render_game_to_text;
+
+// initial render
+render();
+
+// keyboard hooks for interactive use
+window.addEventListener('keydown', (e)=>{
+  if (e.key === 'ArrowLeft') inputLeft = true;
+  if (e.key === 'ArrowRight') inputRight = true;
+  if (e.key === ' ') { e.preventDefault(); window.drop(); }
+});
+window.addEventListener('keyup', (e)=>{
+  if (e.key === 'ArrowLeft') inputLeft = false;
+  if (e.key === 'ArrowRight') inputRight = false;
+});
+
+</script>
 </body>
 </html>

@@ -1,167 +1,116 @@
-import {ROWS,COLS,TILE_TYPES,EMOJIS,Tile} from './types';
+import { Board, GameState } from "./types";
 
-function seededRandom(seed:number){
-  return function(){
-    seed = (seed * 48271) % 0x7fffffff;
-    return (seed & 0xffff) / 0x10000;
-  }
-}
+export const WIDTH = 8;
+export const HEIGHT = 8;
+export const TILE_TYPES = 6;
+export const EMOJIS = ["🍎","🍊","🍇","🍋","🍓","🍒"];
 
-export class Board {
-  grid: Tile[]; // row-major, 0..ROWS*COLS-1
-  score = 0;
-  combo = 1;
-  rng: () => number;
+export class Match3 {
+  state: GameState;
+  private rngSeed = 1;
 
-  constructor(seed = 12345){
-    this.grid = new Array(ROWS*COLS).fill(0);
-    this.rng = seededRandom(seed);
+  constructor(){
+    this.state = { board: this.createEmpty(), score: 0, combo: 1, resolving: false };
     this.fillRandom();
   }
 
-  index(r:number,c:number){ return r*COLS + c }
+  createEmpty(): Board{
+    return Array.from({length: HEIGHT},()=>Array.from({length: WIDTH},()=>0));
+  }
 
-  at(r:number,c:number){ return this.grid[this.index(r,c)] }
-  set(r:number,c:number,v:Tile){ this.grid[this.index(r,c)] = v }
+  // deterministic rand for tests
+  seed(s:number){ this.rngSeed = s; }
+  rnd(){ this.rngSeed = (this.rngSeed * 1664525 + 1013904223) >>> 0; return this.rngSeed / 0x100000000; }
+  randInt(n:number){return Math.floor(this.rnd()*n)}
 
   fillRandom(){
-    for(let r=0;r<ROWS;r++){
-      for(let c=0;c<COLS;c++){
-        this.set(r,c, Math.floor(this.rng()*TILE_TYPES));
-      }
-    }
-    // avoid starting matches
-    while(this.findMatches().length) this.resolveMatchesImmediate();
+    for(let r=0;r<HEIGHT;r++)for(let c=0;c<WIDTH;c++)this.state.board[r][c]=this.randInt(TILE_TYPES);
   }
 
-  setGrid(arr:number[]){
-    if(arr.length !== ROWS*COLS) throw new Error('bad length');
-    this.grid = arr.slice();
-  }
+  setBoard(board: Board){ this.state.board = board.map(row=>row.slice()); }
 
   swap(r1:number,c1:number,r2:number,c2:number){
-    const i1=this.index(r1,c1), i2=this.index(r2,c2);
-    const tmp=this.grid[i1]; this.grid[i1]=this.grid[i2]; this.grid[i2]=tmp;
-    const matches = this.findMatches();
-    if(matches.length===0){ // revert
-      const tmp2=this.grid[i1]; this.grid[i1]=this.grid[i2]; this.grid[i2]=tmp2;
-      return false;
-    }
-    // otherwise resolve until stable
-    let chain = 0;
-    while(true){
-      const sets = this.findMatches();
-      if(sets.length===0) break;
-      chain++;
-      const cleared = this.clearMatches(sets);
-      this.score += cleared * 100 * this.combo;
-      this.applyGravity();
-      this.refillTop();
-      this.combo++;
-      // safety
-      if(chain>20) break;
-    }
-    // after resolution reset combo back to 1 for next move
-    this.combo = 1;
-    return true;
+    const b = this.state.board;
+    const tmp = b[r1][c1]; b[r1][c1]=b[r2][c2]; b[r2][c2]=tmp;
   }
 
-  findMatches(){
-    const res: Set<number>[] = [];
-    const seen = new Set<number>();
-    // horizontal
-    for(let r=0;r<ROWS;r++){
-      let runStart=0;
-      for(let c=1;c<=COLS;c++){
-        if(c<COLS && this.at(r,c)===this.at(r,runStart)) continue;
-        const runLen = c-runStart;
-        if(runLen>=3){
-          const s = new Set<number>();
-          for(let k=runStart;k<c;k++) s.add(this.index(r,k));
-          res.push(s);
-        }
-        runStart=c;
-      }
-    }
-    // vertical
-    for(let c=0;c<COLS;c++){
-      let runStart=0;
-      for(let r=1;r<=ROWS;r++){
-        if(r<ROWS && this.at(r,c)===this.at(runStart,c)) continue;
-        const runLen = r-runStart;
-        if(runLen>=3){
-          const s = new Set<number>();
-          for(let k=runStart;k<r;k++) s.add(this.index(k,c));
-          res.push(s);
-        }
-        runStart=r;
-      }
-    }
-    // merge overlapping sets
-    const merged: Set<number>[] = [];
-    for(const s of res){
-      let mergedInto: Set<number> | null = null;
-      for(const m of merged){
-        for(const v of s) if(m.has(v)){ mergedInto = m; break }
-        if(mergedInto) break;
-      }
-      if(mergedInto){ for(const v of s) mergedInto.add(v) }
-      else merged.push(new Set(s));
-    }
-    return merged;
+  isAdjacent(r1:number,c1:number,r2:number,c2:number){
+    return Math.abs(r1-r2)+Math.abs(c1-c2)===1;
   }
 
-  clearMatches(sets:Set<number>[]) {
-    let cleared=0;
-    for(const s of sets){
-      for(const idx of s){
-        if(this.grid[idx] !== -1){
-          this.grid[idx] = -1; cleared++;
-        }
+  findMatches(board:Board){
+    const matches: Set<string> = new Set();
+    // rows
+    for(let r=0;r<HEIGHT;r++){
+      let run=1;
+      for(let c=1;c<=WIDTH;c++){
+        if(c<WIDTH && board[r][c]===board[r][c-1]){ run++; continue; }
+        if(run>=3){ for(let k=0;k<run;k++) matches.add(`${r},${c-1-k}`); }
+        run=1;
       }
     }
+    // cols
+    for(let c=0;c<WIDTH;c++){
+      let run=1;
+      for(let r=1;r<=HEIGHT;r++){
+        if(r<HEIGHT && board[r][c]===board[r-1][c]){ run++; continue; }
+        if(run>=3){ for(let k=0;k<run;k++) matches.add(`${r-1-k},${c}`); }
+        run=1;
+      }
+    }
+    return Array.from(matches).map(s=>s.split(",").map(Number) as [number,number]);
+  }
+
+  clearMatches(board:Board, matches:[number,number][]) : number {
+    for(const [r,c] of matches) board[r][c] = -1;
+    const cleared = matches.length;
     return cleared;
   }
 
-  resolveMatchesImmediate(){
-    const sets=this.findMatches();
-    if(sets.length===0) return 0;
-    const c = this.clearMatches(sets);
-    this.applyGravity();
-    this.refillTop();
-    return c;
-  }
-
-  applyGravity(){
-    for(let c=0;c<COLS;c++){
-      let write = ROWS-1;
-      for(let r=ROWS-1;r>=0;r--){
-        const v = this.at(r,c);
-        if(v!==-1){ this.set(write,c,v); write--; }
+  applyGravity(board:Board){
+    for(let c=0;c<WIDTH;c++){
+      let write = HEIGHT-1;
+      for(let r=HEIGHT-1;r>=0;r--){
+        if(board[r][c]!==-1){ board[write][c]=board[r][c]; write--; }
       }
-      for(let r=write;r>=0;r--) this.set(r,c,-1);
+      while(write>=0){ board[write][c]=this.randInt(TILE_TYPES); write--; }
     }
   }
 
-  refillTop(){
-    for(let c=0;c<COLS;c++){
-      for(let r=0;r<ROWS;r++){
-        if(this.at(r,c)===-1) this.set(r,c, Math.floor(this.rng()*TILE_TYPES));
-      }
-    }
-    // avoid immediate matches from refill
-    // we'll allow cascades; but ensure there is no pre-existing match after full refill
+  tryMove(r1:number,c1:number,r2:number,c2:number){
+    if(!this.isAdjacent(r1,c1,r2,c2)) return false;
+    const board = this.state.board.map(r=>r.slice());
+    // swap
+    const tmp = board[r1][c1]; board[r1][c1]=board[r2][c2]; board[r2][c2]=tmp;
+    const matches = this.findMatches(board);
+    if(matches.length===0) return false;
+    // valid: commit and resolve
+    this.state.board = board;
+    this.resolveAll();
+    return true;
   }
 
-  toEmojiRows(){
-    const lines:string[] = [];
-    for(let r=0;r<ROWS;r++){
-      const row: string[] = [];
-      for(let c=0;c<COLS;c++) row.push(EMOJIS[this.at(r,c)]);
-      lines.push(row.join(' '));
+  resolveAll(){
+    this.state.resolving = true;
+    let chain = 0;
+    while(true){
+      const matches = this.findMatches(this.state.board);
+      if(matches.length===0) break;
+      chain++;
+      const cleared = this.clearMatches(this.state.board,matches);
+      // scoring: base 10 per tile, times chain multiplier
+      this.state.score += cleared * 10 * chain;
+      this.applyGravity(this.state.board);
     }
-    return lines;
+    this.state.combo = chain>1?chain:1;
+    this.state.resolving = false;
   }
-}
 
-export default Board;
+  // deterministic step hooks for test automation
+  advanceTime(ms:number){
+    // in this simple game, resolving is instantaneous on move; advanceTime triggers no extra effect
+    return;
+  }
+
+  renderText(): string{
+    const rows = this.state.board.map(r=>r.map(v=> v>=0 ? EMOJIS[v] : 

@@ -1,7 +1,15 @@
-Progress notes for minimal deterministic 2048 demo
+Original prompt: Create a minimal deterministic 2048 project with tests and deterministic helpers.
 
-- Implemented core game logic in `src/game.ts` with deterministic RNG (xorshift32).
-- Exposed test helper APIs on `window`: `setGameSeed`, `setBoard`, `move`, `render_game_to_text`, `advanceTime`.
-- Render function returns formatted board rows, score, moves, and state.
-- Keyboard controls support Arrow keys and WASD.
-- Playwright tests verify merge behavior, score, deterministic spawn, and loss detection.
+Progress:
+- Created minimal runtime in `index.html` (inline JS) and TypeScript sources in `src/`.
+- Exposed deterministic helpers:
+  - `window.setSeed(seed)`
+  - `window.setBoard(board)`
+  - `window.move(dir)` and `window.moveNoSpawn(dir)`
+  - `window.render_game_to_text()`
+  - `window.advanceTime(ms)`
+- Tests added in `tests/playwright.spec.ts` for merge rules, scoring, and loss detection.
+
+Notes / TODO:
+- This repo includes TypeScript sources but the browser runtime uses the inline JS in `index.html` for simplicity (no bundler).
+- To run Playwright tests locally, install dependencies and run `npx playwright test` from `game/`.

@@ -28,6 +28,20 @@ Base copies are included for traceability:
 - `02-balance-base.md`
 - `03-polish-base.md`
 
+## Evolution Screenshots
+
+### Creation
+
+![Gravity Sushi creation stage](screenshots/creation.png)
+
+### Balance
+
+![Gravity Sushi balance stage](screenshots/balance.png)
+
+### Polish
+
+![Gravity Sushi polish stage](screenshots/polish.png)
+
 ## Notes On This "Try Again"
 
 - `core` completed after one aborted attempt (`logs/01-core-attempt1.jsonl`) and one successful pass (`logs/01-core.jsonl`).

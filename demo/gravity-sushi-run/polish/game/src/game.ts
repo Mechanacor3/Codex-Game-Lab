@@ -39,6 +39,8 @@ export class Game {
   // small history for anti-streak logic
   lastLabels: WeightLabel[] = [];
   phase = 0; // 0=start, 1=after20s, 2=after40s
+  // deterministic animation time (ms) used by render
+  animTime = 0;
 
   constructor() {}
 
@@ -92,6 +94,9 @@ export class Game {
   step(ms: number) {
     if (this.state !== 'playing') return;
     const stepMs = Math.max(0, ms);
+    // advance deterministic animation clock
+    this.animTime += stepMs;
+
     // decrement timer
     const prevElapsed = 60_000 - this.timeRemaining;
     this.timeRemaining -= stepMs;
@@ -138,7 +143,8 @@ export class Game {
     // polish update: drop trails & squish decay
     for (let i = this.dropTrails.length - 1; i >= 0; i--) {
       this.dropTrails[i].t -= stepMs;
-      this.dropTrails[i].y += (stepMs / 10);
+      // move trails downward slightly per ms to suggest motion
+      this.dropTrails[i].y += (stepMs / 12);
       if (this.dropTrails[i].t <= 0) this.dropTrails.splice(i, 1);
     }
     // decay landing squish and wobble gently, faster when reduced motion is false
@@ -195,11 +201,14 @@ export class Game {
     ctx.fillStyle = '#444';
     ctx.fillRect(baseX - 60, this.plateY + 20, 120, 10);
 
-    // draw drop trails
+    // draw drop trails (subtle, minimal)
     for (const t of this.dropTrails) {
-      ctx.globalAlpha = Math.max(0, t.t / 400) * 0.8;
-      ctx.fillStyle = '#fff';
-      ctx.fillRect(t.x - 4, t.y - 2, 8, 4);
+      ctx.globalAlpha = Math.max(0, t.t / 400) * (this.reduceMotion ? 0.6 : 0.9);
+      ctx.fillStyle = this.highContrast ? '#fff' : '#ffffff';
+      // soft ellipse via small arc, fast and cheap
+      ctx.beginPath();
+      ctx.ellipse(t.x, t.y, 6, 2.5, 0, 0, Math.PI * 2);
+      ctx.fill();
     }
     ctx.globalAlpha = 1;
 
@@ -217,12 +226,14 @@ export class Game {
       y -= pieceH;
     }
 
-    // draw plate with wobble and landing squish
+    // draw plate with wobble and landing squish; use animTime for determinism
     ctx.save();
-    const wob = Math.sin(Date.now() / 80) * this.plateWobble;
+    const wob = this.reduceMotion ? 0 : Math.sin(this.animTime / 80) * this.plateWobble;
     const squish = this.landingSquish;
     ctx.translate(this.plateX + wob - this.plateWidth/2, this.plateY);
-    ctx.scale(1, 1 / squish);
+    // limit squish for stability
+    const sq = Math.max(1, Math.min(1.25, squish));
+    ctx.scale(1, 1 / sq);
     ctx.fillStyle = this.highContrast ? '#fff' : '#8bc34a';
     ctx.fillRect(0, 0, this.plateWidth, 12);
     ctx.restore();

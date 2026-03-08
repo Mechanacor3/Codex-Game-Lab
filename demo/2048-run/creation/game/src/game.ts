@@ -1,157 +1,41 @@
-// Minimal deterministic 2048 core logic
-
-export type Tile = number | 0;
-export type Board = Tile[]; // length 16, row-major
-
-export type GameState = 'playing' | 'won' | 'lost';
-
+// TypeScript source for game logic (same core as runtime in index.html)
 export class RNG {
-  seed: number;
-  constructor(seed = 1) { this.seed = seed >>> 0; }
-  next() {
-    // xorshift32
-    let x = this.seed || 1;
-    x ^= x << 13; x >>>= 0;
-    x ^= x >>> 17;
-    x ^= x << 5; x >>>= 0;
-    this.seed = x;
-    return x / 0xFFFFFFFF;
+  private _seed = 1;
+  constructor(seed=1){ this.set(seed); }
+  set(seed:number){ this._seed = seed >>> 0; }
+  next(): number {
+    let t = this._seed += 0x6D2B79F5;
+    t = Math.imul(t ^ t >>> 15, t | 1);
+    t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
   }
 }
+
+export type Board = number[][];
 
 export class Game {
-  board: Board;
-  score: number;
-  moves: number;
-  state: GameState;
+  size = 4;
+  board: Board = [];
+  score = 0;
+  moves = 0;
+  state: 'playing'|'lost'|'won' = 'playing';
   rng: RNG;
-  lastSpawned: number | null;
-
-  constructor(seed = 1) {
-    this.rng = new RNG(seed);
-    this.board = new Array(16).fill(0);
-    this.score = 0;
-    this.moves = 0;
-    this.state = 'playing';
-    this.lastSpawned = null;
-    // start with two tiles
-    this.spawnRandom();
-    this.spawnRandom();
-  }
-
-  setSeed(n: number) { this.rng = new RNG(n); }
-
-  index(r: number, c: number) { return r * 4 + c; }
-
-  emptyIndices() {
-    const res: number[] = [];
-    for (let i = 0; i < 16; i++) if (this.board[i] === 0) res.push(i);
-    return res;
-  }
-
-  spawnRandom() {
-    const empties = this.emptyIndices();
-    if (empties.length === 0) return null;
-    const pick = Math.floor(this.rng.next() * empties.length);
-    const idx = empties[pick];
-    const v = (this.rng.next() < 0.9) ? 2 : 4;
-    this.board[idx] = v;
-    this.lastSpawned = idx;
-    return { idx, v };
-  }
-
-  setBoard(b: Board) {
-    if (b.length !== 16) throw new Error('board must be length 16');
-    this.board = b.slice();
-    this.score = 0;
-    this.moves = 0;
-    this.state = 'playing';
-  }
-
-  cloneBoard() { return this.board.slice(); }
-
-  canMove() {
-    if (this.emptyIndices().length > 0) return true;
-    // check merges
-    for (let r = 0; r < 4; r++) for (let c = 0; c < 4; c++) {
-      const v = this.board[this.index(r,c)];
-      if (c < 3 && this.board[this.index(r,c+1)] === v) return true;
-      if (r < 3 && this.board[this.index(r+1,c)] === v) return true;
-    }
-    return false;
-  }
-
-  move(dir: 'up'|'down'|'left'|'right') {
-    if (this.state !== 'playing') return false;
-    const before = this.cloneBoard();
-    let moved = false;
-    let gained = 0;
-    const makeLine = (i: number) => [this.board[i], this.board[i+4], this.board[i+8], this.board[i+12]];
-
-    if (dir === 'left' || dir === 'right') {
-      for (let r = 0; r < 4; r++) {
-        const row = [] as number[];
-        for (let c = 0; c < 4; c++) row.push(this.board[this.index(r,c)] as number);
-        const orig = row.slice();
-        const newRow = this.processLine(row, dir === 'right');
-        for (let c = 0; c < 4; c++) this.board[this.index(r,c)] = newRow[c];
-        if (!moved && !arraysEqual(orig, newRow)) moved = true;
-      }
-    } else {
-      for (let c = 0; c < 4; c++) {
-        const col = [] as number[];
-        for (let r = 0; r < 4; r++) col.push(this.board[this.index(r,c)] as number);
-        const orig = col.slice();
-        const newCol = this.processLine(col, dir === 'down');
-        for (let r = 0; r < 4; r++) this.board[this.index(r,c)] = newCol[r];
-        if (!moved && !arraysEqual(orig, newCol)) moved = true;
-      }
-    }
-
-    if (moved) {
-      this.moves += 1;
-      // spawn after a valid move
-      this.spawnRandom();
-      // recompute score as sum of board for simplicity of deterministic scoring increments
-      // but we will increment gained inside processLine via side-effect
-    }
-
-    if (!this.canMove()) this.state = 'lost';
-    return moved;
-  }
-
-  processLine(line: number[], reverse = false) {
-    const arr = reverse ? line.slice().reverse() : line.slice();
-    const result: number[] = [0,0,0,0];
-    let write = 0;
-    for (let i = 0; i < 4; i++) {
-      const v = arr[i];
-      if (v === 0) continue;
-      if (write > 0 && result[write-1] === v && result[write-1] !== 0 && (i>0)) {
-        // merge with previous
-        result[write-1] = result[write-1] * 2;
-        this.score += result[write-1];
-      } else {
-        result[write++] = v;
-      }
-    }
-    while (write < 4) { result[write++] = 0; }
-    return reverse ? result.reverse() : result;
-  }
-}
-
-function arraysEqual(a: number[], b: number[]) {
-  if (a.length !== b.length) return false;
-  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
-  return true;
-}
-
-export function renderToText(g: Game) {
-  const rows: string[] = [];
-  for (let r = 0; r < 4; r++) {
-    const row = [] as string[];
-    for (let c = 0; c < 4; c++) row.push(String(g.board[g.index(r,c)]).padStart(4, ' '));
-    rows.push(row.join(' '));
-  }
-  return `\n${rows.join('\n')}\nscore: ${g.score}\nmoves: ${g.moves}\nstate: ${g.state}\n`;
+  time = 0;
+  constructor(seed=1){ this.rng = new RNG(seed); this._initBoard(); }
+  _initBoard(){ this.board = Array.from({length:this.size},()=>Array(this.size).fill(0)); }
+  setSeed(s:number){ this.rng.set(s); }
+  setBoard(b:Board){ this.board = b.map(row=>row.slice()); this._updateState(); }
+  getBoard(){ return this.board.map(r=>r.slice()); }
+  _updateState(){ if(this._hasTile(2048)) this.state='won'; else if(this._checkLoss()) this.state='lost'; else this.state='playing'; }
+  _hasTile(v:number){ for(let r=0;r<this.size;r++) for(let c=0;c<this.size;c++) if(this.board[r][c]===v) return true; return false; }
+  _checkLoss():boolean{ for(let r=0;r<this.size;r++) for(let c=0;c<this.size;c++) if(this.board[r][c]===0) return false; for(let r=0;r<this.size;r++) for(let c=0;c<this.size;c++){ const v=this.board[r][c]; if(r+1<this.size && this.board[r+1][c]===v) return false; if(c+1<this.size && this.board[r][c+1]===v) return false; } return true; }
+  _hasChanged(oldB:Board,newB:Board){ for(let r=0;r<this.size;r++) for(let c=0;c<this.size;c++) if(oldB[r][c]!==newB[r][c]) return true; return false; }
+  _moveLineLeft(line:number[]){ const out = line.filter(x=>x!==0); const merged:boolean[] = []; let scoreGain=0; for(let i=0;i<out.length-1;i++){ if(out[i]===out[i+1] && !merged[i]){ out[i] = out[i]*2; scoreGain += out[i]; out[i+1] = 0; merged[i]=true; } } const compact = out.filter(x=>x!==0); while(compact.length<line.length) compact.push(0); return {line:compact, scoreGain}; }
+  _transpose(b:Board){ const s=this.size; const t = Array.from({length:s},()=>Array(s).fill(0)); for(let r=0;r<s;r++) for(let c=0;c<s;c++) t[c][r]=b[r][c]; return t; }
+  _reverseRows(b:Board){ return b.map(row=>row.slice().reverse()); }
+  _spawnRandom(){ const empties:number[][]=[]; for(let r=0;r<this.size;r++) for(let c=0;c<this.size;c++) if(this.board[r][c]===0) empties.push([r,c]); if(empties.length===0) return; const idx = Math.floor(this.rng.next()*empties.length); const [r,c] = empties[idx]; const tile = this.rng.next() < 0.9 ? 2 : 4; this.board[r][c] = tile; }
+  move(dir:'up'|'down'|'left'|'right'){ return this._move(dir,true); }
+  moveNoSpawn(dir:'up'|'down'|'left'|'right'){ return this._move(dir,false); }
+  _move(dir:'up'|'down'|'left'|'right', doSpawn:boolean){ if(this.state==='lost' || this.state==='won') return false; let working = this.board.map(r=>r.slice()); let rotated=false, reversed=false; if(dir==='up'){ working = this._transpose(working); rotated=true; } else if(dir==='down'){ working = this._transpose(working); working = this._reverseRows(working); rotated=true; reversed=true; } else if(dir==='right'){ working = this._reverseRows(working); reversed=true; } let totalGain=0; const before = working.map(r=>r.slice()); for(let r=0;r<this.size;r++){ const {line, scoreGain} = this._moveLineLeft(working[r]); working[r]=line; totalGain += scoreGain; } let after = working; if(reversed) after = this._reverseRows(after); if(rotated) after = this._transpose(after); const changed = this._hasChanged(this.board, after); if(!changed) return false; this.board = after.map(r=>r.slice()); this.score += totalGain; this.moves += 1; if(doSpawn) this._spawnRandom(); this._updateState(); return true; }
+  renderText(){ const rows = this.board.map(r=>r.map(v=>v===0?'.':String(v)).join(' ')).join('\n'); const meta = `\nScore: ${this.score}  Moves: ${this.moves}  State: ${this.state}`; return rows + meta; }
 }

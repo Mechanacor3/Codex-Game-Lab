@@ -28,6 +28,20 @@ Base copies are included for traceability:
 - `02-balance-base.md`
 - `03-polish-base.md`
 
+## Evolution Screenshots
+
+### Creation
+
+![Match-3 Emoji creation stage](screenshots/creation.png)
+
+### Balance
+
+![Match-3 Emoji balance stage](screenshots/balance.png)
+
+### Polish
+
+![Match-3 Emoji polish stage](screenshots/polish.png)
+
 ## Notes On This "Try Again"
 
 - `core` completed on first attempt.
